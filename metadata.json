@@ -1,0 +1,6 @@
+{
+  "name": "KYAN PROPERTY APP",
+  "description": "Sistem Inventory & Manajemen Properti Terpadu untuk Perumahan Subsidi (FLPP), Komersil (Cluster), dan Recycle (Takeover / Lelang Renovasi) dengan filter harga dan lokasi terperinci.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
