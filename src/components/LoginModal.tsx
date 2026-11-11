@@ -11,12 +11,14 @@ export const LoginModal: React.FC = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   if (!isLoginModalOpen) return null;
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
     const res = login(email, password);
     if (!res.success) {
       setErrorMessage(res.message || 'Login gagal.');
@@ -26,6 +28,7 @@ export const LoginModal: React.FC = () => {
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
     if (!name.trim() || !email.trim() || !password.trim()) {
       setErrorMessage('Mohon lengkapi semua kolom.');
       return;
@@ -33,6 +36,12 @@ export const LoginModal: React.FC = () => {
     const res = register(name, email, password, 'user', phone);
     if (!res.success) {
       setErrorMessage(res.message || 'Pendaftaran gagal.');
+    } else {
+      setSuccessMessage(res.message || 'Pendaftaran berhasil! Akun Anda sedang menunggu persetujuan (Approval) dari Admin.');
+      setMode('login');
+      setName('');
+      setPassword('');
+      setPhone('');
     }
   };
 
@@ -97,6 +106,13 @@ export const LoginModal: React.FC = () => {
 
         {/* Form Body */}
         <div className="p-5">
+          {successMessage && (
+            <div className="p-3 mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs flex items-start gap-2">
+              <span className="font-bold shrink-0">✓</span>
+              <span>{successMessage}</span>
+            </div>
+          )}
+
           {errorMessage && (
             <div className="p-3 mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
               {errorMessage}

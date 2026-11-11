@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { PropertyUnit, PropertyFilterState, PropertyStatus, KprStage } from './types/property';
+import { PropertyUnit, PropertyFilterState, PropertyStatus, KprStage, SitePlanMarker } from './types/property';
 import { INITIAL_PROPERTIES, SUBSIDI_GALLERY, KOMERSIL_GALLERY, RECYCLE_GALLERY } from './data/initialProperties';
 import { exportPropertiesToCSV } from './utils/kprCalculator';
 import { Navbar } from './components/Navbar';
@@ -10,12 +10,15 @@ import { PropertyTable } from './components/PropertyTable';
 import { PropertyDetailModal } from './components/PropertyDetailModal';
 import { AddEditPropertyModal } from './components/AddEditPropertyModal';
 import { KprPipelineView } from './components/KprPipelineView';
+import { SitePlanView } from './components/SitePlanView';
 import { LoginModal } from './components/LoginModal';
 import { LoginScreen } from './components/LoginScreen';
+import { AdminSettingsModal } from './components/AdminSettingsModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LayoutGrid, Table, Plus, Info, CheckCircle2 } from 'lucide-react';
 
 const STORAGE_KEY = 'kyan_property_inventory_data_v2';
+const SALES_SETTINGS_KEY = 'kyan_property_sales_settings_v1';
 
 function PropertyAppContent() {
   const { currentUser, isAdmin, openLoginModal } = useAuth();
@@ -28,19 +31,30 @@ function PropertyAppContent() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map((p: any) => {
-            if (!p.gallery || p.gallery.length < 7) {
-              const matchingSeed = INITIAL_PROPERTIES.find(init => init.id === p.id);
-              if (matchingSeed) {
-                return { ...p, gallery: matchingSeed.gallery };
+            const matchingSeed = INITIAL_PROPERTIES.find(init => init.id === p.id);
+            let updated = { ...p };
+            if (matchingSeed) {
+              if (!updated.location?.mapsUrl && matchingSeed.location.mapsUrl) {
+                updated.location = { ...updated.location, ...matchingSeed.location };
               }
+              if (!updated.sitePlanImage && matchingSeed.sitePlanImage) {
+                updated.sitePlanImage = matchingSeed.sitePlanImage;
+              }
+              if (!updated.sitePlanMarker && matchingSeed.sitePlanMarker) {
+                updated.sitePlanMarker = matchingSeed.sitePlanMarker;
+              }
+              if (!updated.gallery || updated.gallery.length < 7) {
+                updated.gallery = matchingSeed.gallery;
+              }
+            } else if (!updated.gallery || updated.gallery.length < 7) {
               const defaultGallery = p.category === 'komersil' 
                 ? KOMERSIL_GALLERY 
                 : p.category === 'recycle' 
                 ? RECYCLE_GALLERY 
                 : SUBSIDI_GALLERY;
-              return { ...p, gallery: defaultGallery };
+              updated.gallery = defaultGallery;
             }
-            return p;
+            return updated;
           });
         }
       }
@@ -59,14 +73,53 @@ function PropertyAppContent() {
   }, [properties]);
 
   // 2. Navigation & Views State
-  const [activeTab, setActiveTab] = useState<'catalog' | 'table' | 'pipeline'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'table' | 'pipeline' | 'siteplan'>('catalog');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   // 3. Modals State
   const [selectedPropertyDetail, setSelectedPropertyDetail] = useState<PropertyUnit | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<PropertyUnit | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Sales Contact Configuration State
+  const [salesSettings, setSalesSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SALES_SETTINGS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to parse sales settings', e);
+    }
+    return {
+      name: 'Tim Marketing KYAN Property',
+      phone: '0812-8899-7711',
+      whatsapp: '6281288997711',
+    };
+  });
+
+  const handleUpdateSalesSettings = (
+    newSettings: { name: string; phone: string; whatsapp: string },
+    applyToAllUnits: boolean
+  ) => {
+    setSalesSettings(newSettings);
+    try {
+      localStorage.setItem(SALES_SETTINGS_KEY, JSON.stringify(newSettings));
+    } catch (e) {
+      console.error(e);
+    }
+    if (applyToAllUnits) {
+      setProperties(prev => prev.map(p => ({
+        ...p,
+        marketingContact: {
+          name: newSettings.name,
+          phone: newSettings.phone,
+          whatsapp: newSettings.whatsapp,
+        },
+        updatedAt: new Date().toISOString(),
+      })));
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -287,6 +340,21 @@ function PropertyAppContent() {
     showToast('Tahap KPR berhasil diperbarui');
   };
 
+  const handleUpdatePropertyMarker = (unitId: string, marker: SitePlanMarker | undefined, customImage?: string) => {
+    setProperties(prev => prev.map(p => {
+      if (p.id === unitId) {
+        return {
+          ...p,
+          sitePlanMarker: marker,
+          sitePlanImage: customImage || p.sitePlanImage,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return p;
+    }));
+    showToast('Tanda posisi kavling pada site plan berhasil diperbarui!');
+  };
+
   const handleResetData = () => {
     if (!isAdmin) {
       showToast('Hanya akun Admin yang berwenang mereset data.');
@@ -326,6 +394,7 @@ function PropertyAppContent() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenAddModal={handleOpenAddModal}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
         onExportCsv={handleExportCsv}
         onResetData={handleResetData}
         totalUnits={properties.length}
@@ -492,6 +561,16 @@ function PropertyAppContent() {
           />
         )}
 
+        {/* VIEW 4: SITE PLAN INTERAKTIF KAWASAN */}
+        {activeTab === 'siteplan' && (
+          <SitePlanView
+            properties={properties}
+            isAdmin={isAdmin}
+            onSelectProperty={(prop) => setSelectedPropertyDetail(prop)}
+            onUpdatePropertyMarker={handleUpdatePropertyMarker}
+          />
+        )}
+
       </main>
 
       {/* Footer */}
@@ -536,15 +615,31 @@ function PropertyAppContent() {
       )}
 
       {/* Add / Edit Property Modal - Restricted to Admin */}
-      <AddEditPropertyModal
-        isOpen={isAddModalOpen && isAdmin}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setEditingProperty(null);
-        }}
-        onSave={handleSaveProperty}
-        editingProperty={editingProperty}
-      />
+      {isAddModalOpen && isAdmin && (
+        <AddEditPropertyModal
+          isOpen={true}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setEditingProperty(null);
+          }}
+          onSave={handleSaveProperty}
+          editingProperty={editingProperty}
+          defaultSalesContact={salesSettings}
+        />
+      )}
+
+      {/* Admin Settings & Management Modal (Sales Number, Import/Export, User Approval) */}
+      {isSettingsModalOpen && isAdmin && (
+        <AdminSettingsModal
+          isOpen={true}
+          onClose={() => setIsSettingsModalOpen(false)}
+          properties={properties}
+          onUpdateProperties={(updated) => setProperties(updated)}
+          salesSettings={salesSettings}
+          onUpdateSalesSettings={handleUpdateSalesSettings}
+          showToast={showToast}
+        />
+      )}
 
       {/* Login & Register Modal */}
       <LoginModal />

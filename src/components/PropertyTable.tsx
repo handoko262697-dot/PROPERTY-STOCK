@@ -2,7 +2,7 @@ import React from 'react';
 import { PropertyUnit, PropertyStatus } from '../types/property';
 import { formatRupiah, formatRupiahShort, getCategoryBadge, getStatusBadge, getKprStageLabel } from '../utils/formatters';
 import { generateWhatsAppMessage } from '../utils/kprCalculator';
-import { Eye, Edit3, Trash2, MessageSquare, User, ShieldCheck } from 'lucide-react';
+import { Eye, Edit3, Trash2, MessageSquare, User, ShieldCheck, MapPin, Map } from 'lucide-react';
 
 interface PropertyTableProps {
   properties: PropertyUnit[];
@@ -80,10 +80,39 @@ export const PropertyTable: React.FC<PropertyTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Lokasi */}
+                  {/* Lokasi & Titik Maps */}
                   <td className="py-3.5 px-4 whitespace-nowrap">
                     <div className="font-medium text-slate-800">{item.location.city}</div>
-                    <div className="text-slate-400 text-[11px]">{item.location.district}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-slate-400 text-[11px]">{item.location.district}</span>
+                      <a
+                        href={
+                          item.location.mapsUrl
+                            ? (item.location.mapsUrl.startsWith('http') ? item.location.mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location.mapsUrl)}`)
+                            : (item.location.latitude && item.location.longitude
+                                ? `https://www.google.com/maps/search/?api=1&query=${item.location.latitude},${item.location.longitude}`
+                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${item.clusterOrHousingName}, ${item.location.district}, ${item.location.city}`)}`)
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Buka titik Google Maps"
+                        className="text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5"
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-emerald-600" />
+                        Peta
+                      </a>
+                      {item.sitePlanMarker && (
+                        <button
+                          type="button"
+                          onClick={() => onSelectDetail(item)}
+                          title="Lihat posisi kavling pada denah site plan"
+                          className="text-[10px] text-blue-700 hover:text-blue-900 font-semibold bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 inline-flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <Map className="w-2.5 h-2.5 text-blue-600" />
+                          Denah
+                        </button>
+                      )}
+                    </div>
                   </td>
 
                   {/* Tipe LB/LT */}

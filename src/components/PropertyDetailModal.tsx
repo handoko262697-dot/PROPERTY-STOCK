@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { PropertyUnit, PropertyStatus, KprStage } from '../types/property';
 import { formatRupiah, formatRupiahShort, getCategoryBadge, getStatusBadge } from '../utils/formatters';
 import { generateWhatsAppMessage } from '../utils/kprCalculator';
-import { GALLERY_TITLES } from '../data/initialProperties';
+import { DEFAULT_SITE_PLAN_IMAGE, GALLERY_TITLES } from '../data/initialProperties';
 import { 
   X, MapPin, BedDouble, Bath, Home, ShieldCheck, RefreshCw, Sparkles, 
   MessageSquare, Printer, Check, User, ChevronLeft, ChevronRight,
-  Building, Maximize2, Camera
+  Building, Maximize2, Camera, ExternalLink, Map, ZoomIn, ZoomOut, RotateCcw, Pin
 } from 'lucide-react';
 
 interface PropertyDetailModalProps {
@@ -26,11 +26,21 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   onUpdateStatus,
   onOpenEdit,
 }) => {
-  if (!property) return null;
-
-  const [activeTab, setActiveTab] = useState<'overview' | 'buyer' | 'brochure'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'siteplan' | 'buyer' | 'brochure'>('overview');
+  const [sitePlanZoom, setSitePlanZoom] = useState(1);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  // Buyer Lead form state
+  const [buyerName, setBuyerName] = useState(property?.buyerLead?.buyerName || '');
+  const [buyerPhone, setBuyerPhone] = useState(property?.buyerLead?.buyerPhone || '');
+  const [kprStage, setKprStage] = useState<KprStage>(
+    property?.buyerLead?.kprStage || 'pemberkasan'
+  );
+  const [buyerNotes, setBuyerNotes] = useState(property?.buyerLead?.notes || '');
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  if (!property) return null;
 
   // Fallback to 7 photos if property.gallery has fewer
   const photos = property.gallery && property.gallery.length >= 7 
@@ -44,15 +54,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
         '/src/assets/images/kyan_carport_garden_1794176192753.jpg',
         '/src/assets/images/kyan_property_banner_1794148348923.jpg'
       ];
-
-  // Buyer Lead form state
-  const [buyerName, setBuyerName] = useState(property.buyerLead?.buyerName || '');
-  const [buyerPhone, setBuyerPhone] = useState(property.buyerLead?.buyerPhone || '');
-  const [kprStage, setKprStage] = useState<KprStage>(
-    property.buyerLead?.kprStage || 'pemberkasan'
-  );
-  const [buyerNotes, setBuyerNotes] = useState(property.buyerLead?.notes || '');
-  const [savedSuccess, setSavedSuccess] = useState(false);
 
   const cat = getCategoryBadge(property.category);
   const stat = getStatusBadge(property.status);
@@ -203,6 +204,18 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             >
               <Camera className="w-3.5 h-3.5" />
               <span>7 Galeri Foto & Spesifikasi Unit</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('siteplan')}
+              className={`py-3 px-3 border-b-2 transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'siteplan'
+                  ? 'border-slate-900 text-slate-900 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Map className="w-3.5 h-3.5" />
+              <span>Site Plan & Posisi Kavling</span>
             </button>
             
             <button
@@ -490,6 +503,192 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                   </div>
                 </div>
 
+                {/* Titik Lokasi Google Maps Interactive View */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-rose-600" />
+                        <span>Titik Lokasi Proyek & Peta Navigasi</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {property.location.address} ({property.location.district}, {property.location.city})
+                        {property.location.latitude && property.location.longitude && (
+                          <span className="ml-1 text-[11px] font-mono text-slate-400">
+                            [{property.location.latitude}, {property.location.longitude}]
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    <a
+                      href={
+                        property.location.mapsUrl
+                          ? (property.location.mapsUrl.startsWith('http') ? property.location.mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.location.mapsUrl)}`)
+                          : (property.location.latitude && property.location.longitude
+                              ? `https://www.google.com/maps/search/?api=1&query=${property.location.latitude},${property.location.longitude}`
+                              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.clusterOrHousingName}, ${property.location.district}, ${property.location.city}`)}`)
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs shrink-0 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Buka Titik Lokasi di Google Maps</span>
+                    </a>
+                  </div>
+
+                  {/* Embed Map Iframe */}
+                  <div className="w-full h-52 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 relative">
+                    <iframe
+                      key={property.id}
+                      title={`Titik Lokasi ${property.title}`}
+                      width="100%"
+                      height="100%"
+                      loading="lazy"
+                      className="border-0"
+                      src={
+                        property.location.latitude && property.location.longitude
+                          ? `https://maps.google.com/maps?q=${property.location.latitude},${property.location.longitude}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+                          : property.location.mapsUrl && property.location.mapsUrl.includes(',')
+                            ? `https://maps.google.com/maps?q=${encodeURIComponent(property.location.mapsUrl)}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+                            : `https://maps.google.com/maps?q=${encodeURIComponent(`${property.clusterOrHousingName} ${property.location.district} ${property.location.city}`)}&t=&z=14&ie=UTF8&iwloc=&output=embed`
+                      }
+                    />
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB: SITE PLAN & POSISI KAVLING */}
+            {activeTab === 'siteplan' && (
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <Map className="w-4 h-4 text-emerald-600" />
+                      <span>Denah Site Plan Kawasan: {property.clusterOrHousingName}</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Menampilkan denah tata letak masterplan perumahan dan posisi spesifik kavling <strong>{property.blockNumber}</strong>.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Zoom controls */}
+                    <div className="inline-flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setSitePlanZoom(prev => Math.max(0.75, prev - 0.25))}
+                        title="Zoom Out"
+                        className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded"
+                      >
+                        <ZoomOut className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[11px] font-mono font-semibold px-2 text-slate-700">
+                        {Math.round(sitePlanZoom * 100)}%
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSitePlanZoom(prev => Math.min(2.5, prev + 0.25))}
+                        title="Zoom In"
+                        className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded"
+                      >
+                        <ZoomIn className="w-3.5 h-3.5" />
+                      </button>
+                      {sitePlanZoom !== 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setSitePlanZoom(1)}
+                          title="Reset Zoom"
+                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded ml-0.5 border-l border-slate-200"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenEdit(property)}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5"
+                      >
+                        <Pin className="w-3 h-3" />
+                        <span>Edit Tanda / Ganti Denah</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Site Plan Visual Container */}
+                <div className="relative w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 p-2 sm:p-4 shadow-xl">
+                  <div className="overflow-auto max-h-[520px] rounded-xl flex items-center justify-center">
+                    <div
+                      className="relative transition-transform duration-200 origin-center inline-block"
+                      style={{ transform: `scale(${sitePlanZoom})` }}
+                    >
+                      <img
+                        src={property.sitePlanImage || DEFAULT_SITE_PLAN_IMAGE}
+                        alt={`Site Plan ${property.clusterOrHousingName}`}
+                        className="max-w-full h-auto block rounded-lg shadow-md select-none"
+                        style={{ minWidth: '600px' }}
+                      />
+
+                      {/* Unit Marker on Site Plan */}
+                      {property.sitePlanMarker ? (
+                        <div
+                          className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center pointer-events-none"
+                          style={{
+                            left: `${property.sitePlanMarker.x}%`,
+                            top: `${property.sitePlanMarker.y}%`
+                          }}
+                        >
+                          {/* Animated radar sonar wave */}
+                          <span className="absolute w-12 h-12 rounded-full bg-emerald-400/40 animate-ping" />
+                          <span className="absolute w-6 h-6 rounded-full bg-emerald-500/60" />
+
+                          {/* Marker Callout Bubble */}
+                          <div className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-extrabold text-xs border-2 border-emerald-400 shadow-2xl whitespace-nowrap flex items-center gap-1.5 mb-1 animate-bounce">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>{property.sitePlanMarker.label || property.blockNumber}</span>
+                            <span className={`text-[10px] px-1 py-0.2 rounded font-normal ${stat.colorClass}`}>
+                              {stat.label}
+                            </span>
+                          </div>
+
+                          {/* Pin Arrow */}
+                          <div className="w-6 h-6 rounded-full bg-emerald-600 border-2 border-white shadow-xl flex items-center justify-center text-white">
+                            <Pin className="w-3.5 h-3.5 fill-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="absolute top-4 left-4 bg-slate-900/90 text-white text-xs px-3 py-2 rounded-lg border border-slate-700 shadow-md">
+                          ℹ️ Posisi tanda kavling ini belum diatur. Admin dapat mengklik tombol <strong>Edit Tanda</strong> di atas untuk menandai letak kavling pada foto denah.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Legend & Unit Specs Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <span className="text-slate-400 block mb-0.5 text-[11px]">Blok & No Kavling:</span>
+                    <span className="font-bold text-slate-800 text-sm font-mono-numbers">{property.blockNumber}</span>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <span className="text-slate-400 block mb-0.5 text-[11px]">Status Ketersediaan:</span>
+                    <span className={`inline-block font-semibold px-2 py-0.5 rounded text-xs mt-0.5 ${stat.colorClass}`}>
+                      {stat.label}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <span className="text-slate-400 block mb-0.5 text-[11px]">Lebar Jalan Depan:</span>
+                    <span className="font-semibold text-slate-800 text-sm">{property.specs.roadWidth}</span>
+                  </div>
+                </div>
               </div>
             )}
 

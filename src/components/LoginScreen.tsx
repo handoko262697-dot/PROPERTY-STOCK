@@ -12,10 +12,12 @@ export const LoginScreen: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
     const res = login(email, password);
     if (!res.success) {
       setErrorMessage(res.message || 'Email atau kata sandi tidak cocok.');
@@ -25,6 +27,7 @@ export const LoginScreen: React.FC = () => {
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
     if (!name.trim() || !email.trim() || !password.trim()) {
       setErrorMessage('Mohon lengkapi seluruh kolom formulir.');
       return;
@@ -32,6 +35,12 @@ export const LoginScreen: React.FC = () => {
     const res = register(name, email, password, 'user', phone);
     if (!res.success) {
       setErrorMessage(res.message || 'Pendaftaran akun gagal.');
+    } else {
+      setSuccessMessage(res.message || 'Pendaftaran berhasil! Akun Anda sedang menunggu persetujuan (Approval) dari Admin.');
+      setMode('login');
+      setName('');
+      setPassword('');
+      setPhone('');
     }
   };
 
@@ -101,6 +110,14 @@ export const LoginScreen: React.FC = () => {
               Daftar
             </button>
           </div>
+
+          {/* Success / Pending Approval Message */}
+          {successMessage && (
+            <div className="p-3 mb-4 rounded-lg bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs flex items-start gap-2">
+              <span className="font-bold shrink-0">✓</span>
+              <span>{successMessage}</span>
+            </div>
+          )}
 
           {/* Error Message */}
           {errorMessage && (

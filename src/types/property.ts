@@ -16,12 +16,21 @@ export interface BuyerLead {
   notes?: string;
 }
 
+export interface SitePlanMarker {
+  x: number; // percentage 0 - 100% from left
+  y: number; // percentage 0 - 100% from top
+  label?: string; // e.g. "Blok B3 / No. 14"
+  notes?: string;
+}
+
 export interface PropertyUnit {
   id: string;
   title: string;
   clusterOrHousingName: string;
   blockNumber: string; // e.g. "Blok B3 / No. 12"
   category: PropertyCategory;
+  sitePlanImage?: string; // Foto denah / site plan
+  sitePlanMarker?: SitePlanMarker; // Posisi titik tanda pada foto denah
   price: number; // Rupiah
   downPayment: number; // Minimal DP
   installmentPerMonth: number; // Estimasi cicilan per bulan
@@ -32,6 +41,9 @@ export interface PropertyUnit {
     district: string;
     address: string;
     nearbyFacilities: string[];
+    latitude?: number;
+    longitude?: number;
+    mapsUrl?: string; // Link Google Maps atau pin titik lokasi
   };
   specs: {
     buildingArea: number; // LB (m²)

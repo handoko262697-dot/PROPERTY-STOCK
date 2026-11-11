@@ -1,11 +1,12 @@
 import React from 'react';
-import { Home, Layers, FileCheck, Plus, Download, RotateCcw, User, LogIn, LogOut } from 'lucide-react';
+import { Home, Layers, FileCheck, Plus, Download, RotateCcw, User, LogIn, LogOut, Settings, Map } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
-  activeTab: 'catalog' | 'table' | 'pipeline';
-  setActiveTab: (tab: 'catalog' | 'table' | 'pipeline') => void;
+  activeTab: 'catalog' | 'table' | 'pipeline' | 'siteplan';
+  setActiveTab: (tab: 'catalog' | 'table' | 'pipeline' | 'siteplan') => void;
   onOpenAddModal: () => void;
+  onOpenSettings?: () => void;
   onExportCsv: () => void;
   onResetData: () => void;
   totalUnits: number;
@@ -15,11 +16,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   onOpenAddModal,
+  onOpenSettings,
   onExportCsv,
   onResetData,
   totalUnits,
 }) => {
-  const { currentUser, isAdmin, logout, openLoginModal } = useAuth();
+  const { currentUser, isAdmin, logout, openLoginModal, pendingUsersCount } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -83,6 +85,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               <FileCheck className="w-3.5 h-3.5" />
               <span>Monitoring KPR</span>
             </button>
+            <button
+              onClick={() => setActiveTab('siteplan')}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTab === 'siteplan'
+                  ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Map className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Site Plan Kawasan</span>
+            </button>
           </nav>
 
           {/* Zone 3: Primary Actions & User Auth */}
@@ -106,6 +119,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="hidden sm:block p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {/* Pengaturan & Manajemen - ONLY ADMIN CAN SEE */}
+            {isAdmin && onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                title="Buka Pengaturan Sistem (Sales, Impor/Ekspor, Approval User)"
+                className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
+              >
+                <Settings className="w-3.5 h-3.5 text-slate-700" />
+                <span className="hidden sm:inline">Pengaturan</span>
+                {pendingUsersCount > 0 && (
+                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-amber-500 rounded-full animate-pulse">
+                    {pendingUsersCount}
+                  </span>
+                )}
               </button>
             )}
 
@@ -185,6 +215,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             Berkas KPR
+          </button>
+          <button
+            onClick={() => setActiveTab('siteplan')}
+            className={`px-3 py-1 rounded-md whitespace-nowrap font-medium ${
+              activeTab === 'siteplan' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-100'
+            }`}
+          >
+            🗺️ Site Plan
           </button>
         </div>
 

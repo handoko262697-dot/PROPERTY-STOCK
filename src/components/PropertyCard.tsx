@@ -2,7 +2,7 @@ import React from 'react';
 import { PropertyUnit, PropertyStatus } from '../types/property';
 import { formatRupiah, formatRupiahShort, getCategoryBadge, getStatusBadge } from '../utils/formatters';
 import { generateWhatsAppMessage } from '../utils/kprCalculator';
-import { MapPin, BedDouble, Bath, Home, MessageSquare, ArrowRight, ShieldCheck, RefreshCw, Sparkles, Check } from 'lucide-react';
+import { MapPin, BedDouble, Bath, Home, MessageSquare, ArrowRight, ShieldCheck, RefreshCw, Sparkles, Check, Map } from 'lucide-react';
 
 interface PropertyCardProps {
   property: PropertyUnit;
@@ -43,11 +43,17 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             }}
           />
 
-          {/* Fallback pattern if image is hidden */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-slate-900/60 to-transparent flex items-end p-3 pointer-events-none">
+          {/* Image bottom info overlay */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-slate-900/60 to-transparent flex items-end justify-between p-3 pointer-events-none">
             <span className="text-white text-xs font-semibold px-2 py-0.5 rounded bg-black/50 backdrop-blur-sm">
               {property.blockNumber}
             </span>
+            {property.sitePlanMarker && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600/90 text-white backdrop-blur-sm shadow-sm flex items-center gap-1">
+                <Map className="w-2.5 h-2.5" />
+                <span>Site Plan</span>
+              </span>
+            )}
           </div>
 
           {/* Floating Category Badge */}
@@ -69,12 +75,32 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         {/* Content Body */}
         <div className="p-4 sm:p-5">
           
-          {/* Location line */}
-          <div className="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
-            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="truncate">{property.location.district}, {property.location.city}</span>
-            <span aria-hidden="true">·</span>
-            <span className="font-mono-numbers text-slate-600">{property.specs.certificate}</span>
+          {/* Location line with Titik Lokasi Google Maps */}
+          <div className="flex items-center justify-between gap-1 text-xs text-slate-500 mb-1.5">
+            <div className="flex items-center gap-1 min-w-0">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">{property.location.district}, {property.location.city}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono-numbers text-slate-600">{property.specs.certificate}</span>
+            </div>
+
+            <a
+              href={
+                property.location.mapsUrl
+                  ? (property.location.mapsUrl.startsWith('http') ? property.location.mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.location.mapsUrl)}`)
+                  : (property.location.latitude && property.location.longitude
+                      ? `https://www.google.com/maps/search/?api=1&query=${property.location.latitude},${property.location.longitude}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.clusterOrHousingName}, ${property.location.district}, ${property.location.city}`)}`)
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Buka titik Google Maps"
+              className="shrink-0 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-0.5 transition-colors"
+            >
+              <MapPin className="w-3 h-3 text-emerald-600" />
+              <span>Titik Lokasi</span>
+            </a>
           </div>
 
           {/* Title */}
@@ -93,7 +119,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           {property.category === 'subsidi' && property.subsidiData && (
             <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50/80 px-2 py-1 rounded mb-3 border border-emerald-100">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="truncate font-medium">Bunga KPR FLPP 5% Flat s/d 20 Thn</span>
+              <span className="truncate font-medium">Program Rumah Subsidi Pemerintah FLPP</span>
             </div>
           )}
 

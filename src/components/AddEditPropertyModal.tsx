@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { PropertyUnit, PropertyCategory, PropertyStatus, CertificateType, WaterSourceType } from '../types/property';
-import { X, Building2, MapPin, Calculator, ShieldCheck, RefreshCw, Home, Check, Camera, Image } from 'lucide-react';
-import { SUBSIDI_GALLERY, KOMERSIL_GALLERY, RECYCLE_GALLERY, GALLERY_TITLES } from '../data/initialProperties';
+import React, { useState, useEffect, useRef } from 'react';
+import { PropertyUnit, PropertyCategory, PropertyStatus, CertificateType, WaterSourceType, SitePlanMarker } from '../types/property';
+import { X, Building2, MapPin, Calculator, ShieldCheck, RefreshCw, Home, Check, Camera, Image, Upload, ExternalLink, Map, Crosshair, Pin } from 'lucide-react';
+import { SUBSIDI_GALLERY, KOMERSIL_GALLERY, RECYCLE_GALLERY, GALLERY_TITLES, DEFAULT_SITE_PLAN_IMAGE } from '../data/initialProperties';
 
 interface AddEditPropertyModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (property: PropertyUnit) => void;
   editingProperty?: PropertyUnit | null;
+  defaultSalesContact?: {
+    name: string;
+    phone: string;
+    whatsapp: string;
+  };
 }
 
 const PRESET_IMAGES = [
@@ -33,9 +38,8 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
   onClose,
   onSave,
   editingProperty,
+  defaultSalesContact,
 }) => {
-  if (!isOpen) return null;
-
   // Form states
   const [title, setTitle] = useState('');
   const [clusterName, setClusterName] = useState('');
@@ -63,11 +67,47 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
   const [waterSource, setWaterSource] = useState<WaterSourceType>('Sumur Bor Jetpump');
   const [certificate, setCertificate] = useState<CertificateType>('SHM');
   const [roadWidth, setRoadWidth] = useState('Row 6.5 Meter');
+  const [mapsUrl, setMapsUrl] = useState('');
 
   const [image, setImage] = useState(PRESET_IMAGES[0].url);
   const [gallery, setGallery] = useState<string[]>(SUBSIDI_GALLERY);
   const [description, setDescription] = useState('');
   const [highlightsInput, setHighlightsInput] = useState('');
+  
+  // Site Plan state
+  const [sitePlanImage, setSitePlanImage] = useState<string>(DEFAULT_SITE_PLAN_IMAGE);
+  const [sitePlanMarker, setSitePlanMarker] = useState<SitePlanMarker | undefined>(undefined);
+  const sitePlanImgRef = useRef<HTMLImageElement>(null);
+
+  const handleSitePlanUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setSitePlanImage(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleSitePlanClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const img = sitePlanImgRef.current;
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    if (clickX < 0 || clickX > rect.width || clickY < 0 || clickY > rect.height) return;
+    const xPct = Math.round((clickX / rect.width) * 1000) / 10;
+    const yPct = Math.round((clickY / rect.height) * 1000) / 10;
+    setSitePlanMarker({
+      x: Math.max(1, Math.min(99, xPct)),
+      y: Math.max(1, Math.min(99, yPct)),
+      label: blockNumber || 'Kavling',
+    });
+  };
 
   // Recycle extra
   const [bankAsal, setBankAsal] = useState('Bank BTN');
@@ -75,6 +115,69 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
   const [angsuranBerjalan, setAngsuranBerjalan] = useState(1050000);
   const [dpOverKredit, setDpOverKredit] = useState(55000000);
   const [kondisiRenovasi, setKondisiRenovasi] = useState('Dapur sudah ditutup, cat baru, kanopi baja ringan.');
+
+  // Photo Upload Handler for a specific slot (1-7)
+  const handleSlotPhotoUpload = (slotIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setGallery(prev => {
+          const updated = [...prev];
+          updated[slotIndex] = dataUrl;
+          return updated;
+        });
+        if (slotIndex === 0) {
+          setImage(dataUrl);
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // Multiple / Batch Photo Upload Handler
+  const handleBatchPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const maxCount = Math.min(files.length, 7);
+    const readers: Promise<{ index: number; dataUrl: string }>[] = [];
+
+    for (let i = 0; i < maxCount; i++) {
+      const file = files[i];
+      const slotIdx = i;
+      readers.push(
+        new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            resolve({ index: slotIdx, dataUrl: event.target?.result as string });
+          };
+          reader.readAsDataURL(file);
+        })
+      );
+    }
+
+    Promise.all(readers).then((results) => {
+      setGallery(prev => {
+        const updated = [...prev];
+        results.forEach(({ index, dataUrl }) => {
+          if (dataUrl) {
+            updated[index] = dataUrl;
+          }
+        });
+        return updated;
+      });
+      if (results[0]?.dataUrl) {
+        setImage(results[0].dataUrl);
+      }
+    });
+
+    e.target.value = '';
+  };
 
   // Populate when editing
   useEffect(() => {
@@ -92,6 +195,7 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
       setCity(editingProperty.location.city);
       setDistrict(editingProperty.location.district);
       setAddress(editingProperty.location.address);
+      setMapsUrl(editingProperty.location.mapsUrl || (editingProperty.location.latitude && editingProperty.location.longitude ? `https://www.google.com/maps?q=${editingProperty.location.latitude},${editingProperty.location.longitude}` : ''));
       setBuildingArea(editingProperty.specs.buildingArea);
       setSurfaceArea(editingProperty.specs.surfaceArea);
       setBedrooms(editingProperty.specs.bedrooms);
@@ -106,6 +210,8 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
       setGallery(editingProperty.gallery?.length >= 7 ? editingProperty.gallery : (editingProperty.category === 'komersil' ? KOMERSIL_GALLERY : editingProperty.category === 'recycle' ? RECYCLE_GALLERY : SUBSIDI_GALLERY));
       setDescription(editingProperty.description);
       setHighlightsInput(editingProperty.highlights.join('\n'));
+      setSitePlanImage(editingProperty.sitePlanImage || DEFAULT_SITE_PLAN_IMAGE);
+      setSitePlanMarker(editingProperty.sitePlanMarker);
 
       if (editingProperty.recycleData) {
         setBankAsal(editingProperty.recycleData.bankAsal);
@@ -129,6 +235,7 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
       setCity('Bogor');
       setDistrict('Cileungsi');
       setAddress('Jl. Raya Cileungsi, Bogor');
+      setMapsUrl('');
       setBuildingArea(30);
       setSurfaceArea(60);
       setBedrooms(2);
@@ -142,9 +249,13 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
       setImage(SUBSIDI_GALLERY[0]);
       setGallery(SUBSIDI_GALLERY);
       setDescription('Unit perumahan baru dengan sirkulasi udara optimal dan konstruksi hebel berkualitas.');
-      setHighlightsInput('Bunga KPR FLPP 5% Flat\nBebas PPN\nDekat Sekolah & Pasar');
+      setHighlightsInput('Program KPR Subsidi FLPP\nBebas PPN\nDekat Sekolah & Pasar');
+      setSitePlanImage(DEFAULT_SITE_PLAN_IMAGE);
+      setSitePlanMarker(undefined);
     }
   }, [editingProperty, isOpen]);
+
+  if (!isOpen) return null;
 
   // Adjust default values when category changes
   const handleCategoryChange = (newCat: PropertyCategory) => {
@@ -193,6 +304,17 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
       ? gallery.slice(0, 7)
       : [...gallery, ...SUBSIDI_GALLERY.slice(gallery.length)];
 
+    // Parse coordinates if mapsUrl has lat, lng
+    let parsedLat = editingProperty?.location.latitude;
+    let parsedLng = editingProperty?.location.longitude;
+    if (mapsUrl) {
+      const coordMatch = mapsUrl.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+      if (coordMatch) {
+        parsedLat = parseFloat(coordMatch[1]);
+        parsedLng = parseFloat(coordMatch[2]);
+      }
+    }
+
     const savedUnit: PropertyUnit = {
       id: editingProperty ? editingProperty.id : `prop-${Date.now()}`,
       title: title || `${clusterName} ${blockNumber}`,
@@ -209,6 +331,9 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
         city,
         district,
         address: address || `${district}, ${city}`,
+        mapsUrl: mapsUrl.trim() || undefined,
+        latitude: parsedLat,
+        longitude: parsedLng,
         nearbyFacilities: editingProperty?.location.nearbyFacilities || ['Dekat Stasiun KRL', 'Akses Pintu Tol', 'Dekat Pasar Tradisional']
       },
       specs: {
@@ -227,11 +352,17 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
       gallery: fullGallery,
       description: description || 'Unit properti siap huni pilihan terbaik dari KYAN Property.',
       highlights: highlights.length > 0 ? highlights : ['Lingkungan Asri', 'Bebas Banjir', 'Akses Mudah'],
-      marketingContact: editingProperty?.marketingContact || {
+      marketingContact: editingProperty?.marketingContact || defaultSalesContact || {
         name: 'Tim Marketing KYAN Property',
         phone: '0812-8899-7711',
         whatsapp: '6281288997711'
       },
+      sitePlanImage: sitePlanImage || DEFAULT_SITE_PLAN_IMAGE,
+      sitePlanMarker: sitePlanMarker ? {
+        x: sitePlanMarker.x,
+        y: sitePlanMarker.y,
+        label: sitePlanMarker.label || blockNumber || 'Kavling'
+      } : undefined,
       createdAt: editingProperty?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -296,7 +427,7 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'subsidi', label: 'Subsidi (FLPP)', icon: ShieldCheck, desc: 'Bunga 5% Flat' },
+                  { id: 'subsidi', label: 'Subsidi (FLPP)', icon: ShieldCheck, desc: 'Program Pemerintah' },
                   { id: 'komersil', label: 'Komersil', icon: Building2, desc: 'Cluster Modern' },
                   { id: 'recycle', label: 'Recycle', icon: RefreshCw, desc: 'Takeover / Rehab' },
                 ].map(item => {
@@ -562,6 +693,61 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
                 className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-800"
               />
             </div>
+
+            {/* Titik Lokasi Google Maps */}
+            <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block font-semibold text-emerald-900 text-xs">
+                  Titik Lokasi (Google Maps / Titik Koordinat GPS)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          const lat = pos.coords.latitude.toFixed(6);
+                          const lng = pos.coords.longitude.toFixed(6);
+                          setMapsUrl(`https://www.google.com/maps?q=${lat},${lng}`);
+                        },
+                        () => {
+                          alert('Gagal mengambil titik GPS. Pastikan izin lokasi diaktifkan.');
+                        }
+                      );
+                    } else {
+                      alert('Browser tidak mendukung geolokasi');
+                    }
+                  }}
+                  className="text-[11px] font-medium text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-200 px-2 py-0.5 rounded shadow-xs hover:bg-emerald-50 inline-flex items-center gap-1"
+                >
+                  <MapPin className="w-3 h-3" />
+                  Gunakan GPS Saat Ini
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Contoh: https://maps.app.goo.gl/... atau koordinat -6.398123, 107.012345"
+                  value={mapsUrl}
+                  onChange={(e) => setMapsUrl(e.target.value)}
+                  className="w-full text-xs border border-emerald-200 rounded-lg px-3 py-2 text-slate-800 bg-white"
+                />
+                {mapsUrl.trim() && (
+                  <a
+                    href={mapsUrl.startsWith('http') ? mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-2 rounded-lg font-medium inline-flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Tes Titik
+                  </a>
+                )}
+              </div>
+              <p className="text-[11px] text-emerald-700/80">
+                Titik lokasi ini akan otomatis muncul pada tombol peta dan embed Google Maps di detail produk.
+              </p>
+            </div>
           </div>
 
           {/* Section 4: Spesifikasi Bangunan */}
@@ -689,39 +875,86 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
               </div>
             </div>
 
+            {/* Multi-upload banner */}
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-emerald-950 block">Upload Foto dari Galeri / File Perangkat</span>
+                <span className="text-[11px] text-emerald-800/80 block">
+                  Pilih langsung dari galeri HP atau komputer Anda tanpa perlu mengetik link URL.
+                </span>
+              </div>
+              <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-xs shrink-0 transition-colors">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Sekaligus (Hingga 7 Foto)</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleBatchPhotoUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
             {/* 7 Photo Slots Grid */}
             <div className="space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
               <span className="text-[11px] font-semibold text-slate-700 block mb-1">
-                Daftar 7 Foto Dokumentasi Produk:
+                Daftar 7 Foto Unit (Klik "Pilih Foto" atau "Ganti Foto" pada masing-masing slot):
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {GALLERY_TITLES.map((titleText, idx) => (
-                  <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200">
-                    <div className="w-16 h-12 rounded overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                      <img
-                        src={gallery[idx] || SUBSIDI_GALLERY[idx]}
-                        alt={titleText}
-                        className="w-full h-full object-cover"
-                      />
+                {GALLERY_TITLES.map((titleText, idx) => {
+                  const currentPhoto = gallery[idx] || SUBSIDI_GALLERY[idx];
+                  const isUploaded = gallery[idx]?.startsWith('data:image');
+                  return (
+                    <div key={idx} className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-colors">
+                      <div className="w-16 h-14 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200 relative group">
+                        <img
+                          src={currentPhoto}
+                          alt={titleText}
+                          className="w-full h-full object-cover"
+                        />
+                        {isUploaded && (
+                          <div className="absolute top-0.5 right-0.5 bg-emerald-600 text-white text-[9px] px-1 rounded-sm font-bold">
+                            Upload
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-xs font-bold text-slate-800 truncate block">
+                            {titleText}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-md border border-emerald-200 transition-colors">
+                            <Upload className="w-3 h-3 text-emerald-600" />
+                            <span>{isUploaded ? 'Ganti Foto' : 'Pilih Foto'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleSlotPhotoUpload(idx, e)}
+                              className="hidden"
+                            />
+                          </label>
+                          {isUploaded && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...gallery];
+                                updated[idx] = (category === 'komersil' ? KOMERSIL_GALLERY : category === 'recycle' ? RECYCLE_GALLERY : SUBSIDI_GALLERY)[idx];
+                                setGallery(updated);
+                              }}
+                              className="text-[10px] text-slate-400 hover:text-rose-600 font-medium"
+                              title="Reset ke gambar default"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[11px] font-bold text-slate-800 block truncate">
-                        {titleText}
-                      </span>
-                      <input
-                        type="text"
-                        value={gallery[idx] || ''}
-                        onChange={(e) => {
-                          const updated = [...gallery];
-                          updated[idx] = e.target.value;
-                          setGallery(updated);
-                        }}
-                        placeholder="URL Foto..."
-                        className="w-full text-[10px] border border-slate-200 rounded px-1.5 py-0.5 mt-0.5 text-slate-700 truncate"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -733,7 +966,7 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
                 rows={3}
                 value={highlightsInput}
                 onChange={(e) => setHighlightsInput(e.target.value)}
-                placeholder="Bunga KPR Flat 5%&#10;Bebas PPN&#10;Dekat Stasiun KRL"
+                placeholder="Program KPR Subsidi FLPP&#10;Bebas PPN&#10;Dekat Stasiun KRL"
                 className="w-full text-xs border border-slate-200 rounded-lg p-3 text-slate-800 font-mono"
               />
             </div>
@@ -751,6 +984,129 @@ export const AddEditPropertyModal: React.FC<AddEditPropertyModalProps> = ({
               />
             </div>
 
+          </div>
+
+          {/* Section 6: Foto Site Plan & Tanda Posisi Kavling */}
+          <div className="space-y-4 pt-4 border-t border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <Map className="w-4 h-4 text-emerald-600" />
+                  <span>6. Foto Site Plan Denah & Berikan Tanda Posisi Kavling</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Upload foto denah site plan dan klik langsung pada gambar untuk memberikan tanda pin kavling ini.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload / Ganti Foto Denah</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleSitePlanUpload}
+                    className="hidden"
+                  />
+                </label>
+                {sitePlanImage !== DEFAULT_SITE_PLAN_IMAGE && (
+                  <button
+                    type="button"
+                    onClick={() => setSitePlanImage(DEFAULT_SITE_PLAN_IMAGE)}
+                    className="text-xs text-slate-600 hover:text-slate-900 px-2 py-1.5 rounded-lg border border-slate-200 bg-white"
+                  >
+                    Reset Foto
+                  </button>
+                )}
+                {sitePlanMarker && (
+                  <button
+                    type="button"
+                    onClick={() => setSitePlanMarker(undefined)}
+                    className="text-xs text-rose-600 hover:text-rose-700 px-2 py-1.5 rounded-lg border border-rose-200 bg-rose-50 font-medium"
+                  >
+                    Hapus Tanda
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Interactive Site Plan Canvas */}
+            <div className="space-y-2">
+              <div className="relative w-full rounded-xl overflow-hidden border-2 border-dashed border-emerald-400/80 bg-slate-950 flex items-center justify-center p-2 shadow-inner">
+                <div
+                  onClick={handleSitePlanClick}
+                  className="relative inline-block cursor-crosshair group max-w-full"
+                  title="Klik di mana saja pada gambar denah untuk meletakkan / memindahkan tanda pin kavling"
+                >
+                  <img
+                    ref={sitePlanImgRef}
+                    src={sitePlanImage}
+                    alt="Site Plan Perumahan"
+                    className="max-h-[420px] w-auto max-w-full object-contain block mx-auto rounded-lg select-none pointer-events-auto shadow-md"
+                  />
+
+                  {/* Helper hint banner */}
+                  <div className="absolute top-2 left-2 bg-slate-900/85 backdrop-blur-xs text-white text-[11px] font-medium px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5 pointer-events-none shadow-md">
+                    <Crosshair className="w-3.5 h-3.5 text-emerald-400 animate-spin" style={{ animationDuration: '6s' }} />
+                    <span>Klik pada denah untuk meletakkan tanda kavling <strong>({blockNumber || 'Unit'})</strong></span>
+                  </div>
+
+                  {/* Pinned Marker Overlay */}
+                  {sitePlanMarker && (
+                    <div
+                      className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-150 pointer-events-none flex flex-col items-center z-10"
+                      style={{ left: `${sitePlanMarker.x}%`, top: `${sitePlanMarker.y}%` }}
+                    >
+                      {/* Glowing pulse ring */}
+                      <span className="absolute w-8 h-8 rounded-full bg-rose-500/30 animate-ping" />
+                      
+                      {/* Pin label badge */}
+                      <div className="px-2 py-0.5 rounded-md bg-slate-900 text-white font-bold text-[11px] border border-rose-400 shadow-lg whitespace-nowrap flex items-center gap-1 mb-0.5">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                        <span>{sitePlanMarker.label || blockNumber || 'Kavling'}</span>
+                      </div>
+
+                      {/* Pin pointer icon */}
+                      <div className="w-5 h-5 rounded-full bg-rose-600 border-2 border-white shadow-md flex items-center justify-center text-white">
+                        <Pin className="w-2.5 h-2.5 fill-white" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Marker Status Indicator */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200 gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-700">Status Tanda Kavling:</span>
+                  {sitePlanMarker ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.5 rounded text-[11px]">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      Ditandai pada X: {sitePlanMarker.x}% · Y: {sitePlanMarker.y}%
+                    </span>
+                  ) : (
+                    <span className="text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-[11px]">
+                      Belum ditandai (Klik pada denah di atas untuk menandai)
+                    </span>
+                  )}
+                </div>
+
+                {sitePlanMarker && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] text-slate-600 font-medium">Label Tanda:</label>
+                    <input
+                      type="text"
+                      value={sitePlanMarker.label || blockNumber}
+                      onChange={(e) => setSitePlanMarker({ ...sitePlanMarker, label: e.target.value })}
+                      placeholder="e.g. Blok B3 / 14"
+                      className="text-xs bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Form Actions */}

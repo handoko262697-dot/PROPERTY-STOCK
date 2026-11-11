@@ -53,7 +53,7 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
               Inventory Perumahan Subsidi, Komersil & Recycle
             </h1>
             <p className="text-sm md:text-base text-slate-300 font-normal leading-relaxed">
-              Kelola dan cari stok kavling rumah siap huni di Bogor, Bekasi, Tangerang, Cikarang & Bandung.
+              Kelola dan cari stok kavling rumah siap huni di Jabodetabek.
               Lengkap dengan dokumentasi 7 galeri foto per unit, skema over kredit notaris, dan filter harga lokasi akurat.
             </p>
           </div>
@@ -75,9 +75,6 @@ export const StatsBanner: React.FC<StatsBannerProps> = ({
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Subsidi (FLPP)
-              </span>
-              <span className="font-mono-numbers text-xs bg-emerald-900/50 px-1.5 py-0.5 rounded text-emerald-300">
-                5% Fixed
               </span>
             </div>
             <div className="text-xl md:text-2xl font-bold text-white font-mono-numbers">
